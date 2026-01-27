@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils'
 export function BottomNav({ isAuth }: { isAuth: boolean }) {
   const pathname = usePathname()
 
-  // Hide on admin pages
-  if (pathname.startsWith('/admin')) return null
+  // Hide on admin pages and login pages
+  if (pathname.startsWith('/admin') || pathname.startsWith('/agent/login') || pathname === '/admin/auth/login') return null
 
   const isActive = (path: string) => pathname === path
 

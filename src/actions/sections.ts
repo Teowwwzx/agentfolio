@@ -1,10 +1,10 @@
-
 'use server'
 
-import sql from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { getSession } from '@/lib/auth'
 import { redirect } from 'next/navigation'
+import { Prisma } from '@prisma/client'
 
 // Helper to ensure auth
 async function requireAuth() {
@@ -31,11 +31,17 @@ export type PageSection = {
 }
 
 export async function getSections() {
-  const sections = await sql<PageSection[]>`
-    SELECT * FROM page_sections
-    ORDER BY display_order ASC
-  `
-  return sections
+  const sections = await prisma.page_sections.findMany({
+    orderBy: { display_order: 'asc' }
+  })
+
+  return sections.map(section => ({
+    ...section,
+    section_type: section.section_type as PageSection['section_type'],
+    layout_type: section.layout_type as PageSection['layout_type'],
+    filter_config: section.filter_config as PageSection['filter_config'],
+    is_active: section.is_active ?? true
+  })) as PageSection[]
 }
 
 export async function createSection(formData: FormData) {
@@ -46,7 +52,7 @@ export async function createSection(formData: FormData) {
   const tag_id = formData.get('tag_id') as string
   const category_id = formData.get('category_id') as string
   const limit = formData.get('limit') ? parseInt(formData.get('limit') as string) : 6
-  
+
   const filter_config = {
     tag_id: tag_id || undefined,
     category_id: category_id || undefined,
@@ -54,14 +60,21 @@ export async function createSection(formData: FormData) {
   }
 
   // Get max order to append
-  const [maxOrder] = await sql`SELECT MAX(display_order) as max_order FROM page_sections`
-  const nextOrder = (maxOrder?.max_order ?? -1) + 1
+  const maxOrderResult = await prisma.page_sections.aggregate({
+    _max: { display_order: true }
+  })
+  const nextOrder = (maxOrderResult._max.display_order ?? -1) + 1
 
-  await sql`
-    INSERT INTO page_sections (title, section_type, layout_type, filter_config, display_order)
-    VALUES (${title}, ${section_type}, ${layout_type}, ${sql.json(filter_config)}, ${nextOrder})
-  `
-  
+  await prisma.page_sections.create({
+    data: {
+      title,
+      section_type,
+      layout_type,
+      filter_config: filter_config as Prisma.InputJsonValue,
+      display_order: nextOrder
+    }
+  })
+
   revalidatePath('/admin/sections')
   revalidatePath('/')
 }
@@ -82,15 +95,16 @@ export async function updateSection(id: string, formData: FormData) {
     limit
   }
 
-  await sql`
-    UPDATE page_sections
-    SET title = ${title},
-        section_type = ${section_type},
-        layout_type = ${layout_type},
-        filter_config = ${sql.json(filter_config)},
-        is_active = ${is_active}
-    WHERE id = ${id}
-  `
+  await prisma.page_sections.update({
+    where: { id },
+    data: {
+      title,
+      section_type,
+      layout_type,
+      filter_config: filter_config as Prisma.InputJsonValue,
+      is_active
+    }
+  })
 
   revalidatePath('/admin/sections')
   revalidatePath('/')
@@ -98,24 +112,24 @@ export async function updateSection(id: string, formData: FormData) {
 
 export async function deleteSection(id: string) {
   await requireAuth()
-  await sql`DELETE FROM page_sections WHERE id = ${id}`
+  await prisma.page_sections.delete({ where: { id } })
   revalidatePath('/admin/sections')
   revalidatePath('/')
 }
 
 export async function updateSectionOrder(items: { id: string; display_order: number }[]) {
   await requireAuth()
+
   // Use transaction for bulk update
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await sql.begin(async (tx: any) => {
-    for (const item of items) {
-      await tx`
-        UPDATE page_sections
-        SET display_order = ${item.display_order}
-        WHERE id = ${item.id}
-      `
-    }
-  })
+  await prisma.$transaction(
+    items.map(item =>
+      prisma.page_sections.update({
+        where: { id: item.id },
+        data: { display_order: item.display_order }
+      })
+    )
+  )
+
   revalidatePath('/admin/sections')
   revalidatePath('/')
 }

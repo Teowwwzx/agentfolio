@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { updateListingAction } from '@/actions/listings'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
@@ -21,22 +21,17 @@ interface EditListingModalProps {
 }
 
 export function EditListingModal({ listing, isOpen, onClose, options }: EditListingModalProps) {
-  const [state, action, isPending] = useActionState(updateListingAction, undefined)
   const [imageUrls, setImageUrls] = useState<string[]>([])
-  
+  const [error, setError] = useState<string | null>(null)
+  const [isPending, setIsPending] = useState(false)
+
   // Reset state when listing changes
   useEffect(() => {
     if (listing) {
       setImageUrls(listing.images.map(img => img.url))
+      setError(null)
     }
   }, [listing])
-
-  // Close modal on success
-  useEffect(() => {
-    if (state?.success) {
-      onClose()
-    }
-  }, [state, onClose])
 
   if (!listing) return null
 
@@ -53,12 +48,33 @@ export function EditListingModal({ listing, isOpen, onClose, options }: EditList
     setImageUrls((prev) => prev.filter((url) => url !== urlToRemove))
   }
 
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setIsPending(true)
+    setError(null)
+
+    const formData = new FormData(e.currentTarget)
+
+    try {
+      const result = await updateListingAction(undefined, formData)
+      if (result?.success) {
+        onClose()
+      } else {
+        setError(result?.error || 'Failed to update listing')
+      }
+    } catch (err) {
+      setError('An unexpected error occurred')
+    } finally {
+      setIsPending(false)
+    }
+  }
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Listing" maxWidth="max-w-4xl">
-      <form action={action} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
         <input type="hidden" name="id" value={listing.id} />
         <input type="hidden" name="imageUrls" value={imageUrls.join(',')} />
-        
+
         <div className="space-y-4">
           {/* Images Section */}
           <div>
@@ -76,9 +92,9 @@ export function EditListingModal({ listing, isOpen, onClose, options }: EditList
                   </button>
                 </div>
               ))}
-              
-              <CldUploadWidget 
-                uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "agentfolio_unsigned"} 
+
+              <CldUploadWidget
+                uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "agentfolio_unsigned"}
                 onSuccess={handleUpload}
               >
                 {({ open }) => (
@@ -97,29 +113,29 @@ export function EditListingModal({ listing, isOpen, onClose, options }: EditList
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
-            <input 
-              name="title" 
-              defaultValue={listing.title || ''} 
-              required 
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+            <input
+              name="title"
+              defaultValue={listing.title || ''}
+              required
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Price (RM)</label>
-              <input 
-                name="price" 
-                type="number" 
-                defaultValue={listing.price || ''} 
-                required 
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+              <input
+                name="price"
+                type="number"
+                defaultValue={listing.price || ''}
+                required
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-              <select 
-                name="status" 
+              <select
+                name="status"
                 defaultValue={listing.status}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               >
@@ -133,8 +149,8 @@ export function EditListingModal({ listing, isOpen, onClose, options }: EditList
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
-              <select 
-                name="categoryId" 
+              <select
+                name="categoryId"
                 defaultValue={listing.category_id || ''}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               >
@@ -146,8 +162,8 @@ export function EditListingModal({ listing, isOpen, onClose, options }: EditList
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Property Type</label>
-              <select 
-                name="typeId" 
+              <select
+                name="typeId"
                 defaultValue={listing.type_id || ''}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               >
@@ -164,12 +180,12 @@ export function EditListingModal({ listing, isOpen, onClose, options }: EditList
             <div className="flex flex-wrap gap-2">
               {options?.tags.map((tag) => (
                 <label key={tag.id} className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-sm cursor-pointer hover:bg-slate-50">
-                  <input 
-                    type="checkbox" 
-                    name="tags" 
-                    value={tag.id} 
+                  <input
+                    type="checkbox"
+                    name="tags"
+                    value={tag.id}
                     defaultChecked={listing.tag_ids?.includes(tag.id)}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
                   <span style={{ color: tag.color }}>{tag.name}</span>
                 </label>
@@ -180,19 +196,19 @@ export function EditListingModal({ listing, isOpen, onClose, options }: EditList
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Location Name</label>
-              <input 
-                name="location" 
-                defaultValue={listing.location || ''} 
-                required 
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+              <input
+                name="location"
+                defaultValue={listing.location || ''}
+                required
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
-             <div>
+            <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Place ID (Google Maps)</label>
-              <input 
-                name="placeId" 
+              <input
+                name="placeId"
                 defaultValue={listing.place_id || ''}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -200,53 +216,53 @@ export function EditListingModal({ listing, isOpen, onClose, options }: EditList
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Sqft</label>
-              <input 
-                name="sqft" 
-                type="number" 
-                defaultValue={listing.sqft || ''} 
-                required 
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+              <input
+                name="sqft"
+                type="number"
+                defaultValue={listing.sqft || ''}
+                required
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Bedrooms</label>
-              <input 
-                name="bedrooms" 
-                type="number" 
-                defaultValue={listing.bedrooms || ''} 
-                required 
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+              <input
+                name="bedrooms"
+                type="number"
+                defaultValue={listing.bedrooms || ''}
+                required
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </div>
-          
-           <div className="grid grid-cols-2 gap-4">
-             <div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Bathrooms</label>
-              <input 
-                name="bathrooms" 
-                type="number" 
-                defaultValue={listing.bathrooms || ''} 
-                required 
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+              <input
+                name="bathrooms"
+                type="number"
+                defaultValue={listing.bathrooms || ''}
+                required
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
-           </div>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-            <textarea 
-              name="description" 
-              rows={5} 
+            <textarea
+              name="description"
+              rows={5}
               defaultValue={listing.description || ''}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
           </div>
         </div>
 
-        {state?.error && (
+        {error && (
           <div className="p-3 rounded-md bg-red-50 text-red-600 text-sm">
-            {state.error}
+            {error}
           </div>
         )}
 

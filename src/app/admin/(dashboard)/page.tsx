@@ -9,15 +9,15 @@ import { ArrowRight, Building2, Eye, MessageSquare, TrendingUp } from 'lucide-re
 export default async function AdminDashboard() {
   const session = await getSession()
   const user = session?.user
-  const isAgent = user?.role !== 'super_admin'
+  const isAgent = user?.role === 'agent'
 
   // Fetch data for stats
   const [listingsData, options] = await Promise.all([
-    getAdminListings({ 
-      page: 1, 
+    getAdminListings({
+      page: 1,
       limit: 5,
       userId: isAgent ? user?.id : undefined
-    }), 
+    }),
     getListingOptions()
   ])
 
@@ -89,10 +89,10 @@ export default async function AdminDashboard() {
             </Button>
           </Link>
         </div>
-        
-        <ListingTable 
-          listings={listingsData.listings} 
-          options={options} 
+
+        <ListingTable
+          listings={listingsData.listings}
+          options={options}
           totalPages={1} // Hide pagination in dashboard widget
           currentPage={1}
         />

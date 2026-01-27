@@ -1,5 +1,5 @@
 
-import sql from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import { cookies } from 'next/headers'
 import { PropertyCarousel } from '@/components/PropertyCarousel'
 import { ListingFilters } from '@/components/ListingFilters'
@@ -7,92 +7,99 @@ import { ListingWithImages } from '@/types'
 import DynamicSection from '@/components/DynamicSection'
 import { getSections } from '@/actions/sections'
 import { getSavedListingIds } from '@/actions/user'
-import { Home as HomeIcon } from 'lucide-react'
+import { getBanners } from '@/actions/banners'
+import { BannerSection } from '@/components/public/BannerSection'
+import { CategoryIconsSection } from '@/components/CategoryIconsSection'
+import { Home as HomeIcon, Heart } from 'lucide-react'
+import Link from 'next/link'
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
 
 async function getListings(searchParams: { search?: string; location?: string; type?: string; category?: string; minPrice?: string; maxPrice?: string }) {
-  // Base query parts
-  let query = sql`
-    SELECT 
-      l.*,
-      COALESCE(
-        json_agg(
-          json_build_object(
-            'id', li.id,
-            'listing_id', li.listing_id,
-            'url', li.url,
-            'display_order', li.display_order,
-            'created_at', li.created_at
-          ) ORDER BY li.display_order ASC
-        ) FILTER (WHERE li.id IS NOT NULL),
-        '[]'
-      ) as images,
-      pc.name as category,
-      pt.name as type,
-      COALESCE(
-        (SELECT json_agg(pt.name)
-         FROM listing_tags lt
-         JOIN property_tags pt ON lt.tag_id = pt.id
-         WHERE lt.listing_id = l.id
-        ),
-        '[]'
-      ) as tags
-    FROM listings l
-    LEFT JOIN listing_images li ON l.id = li.listing_id
-    LEFT JOIN property_categories pc ON l.category_id = pc.id
-    LEFT JOIN property_types pt ON l.type_id = pt.id
-    WHERE l.status = 'active'
-  `
+  const listings = await prisma.listings.findMany({
+    where: {
+      status: 'active',
+      ...(searchParams.search && {
+        OR: [
+          { title: { contains: searchParams.search, mode: 'insensitive' } },
+          { location: { contains: searchParams.search, mode: 'insensitive' } },
+        ]
+      }),
+      ...(searchParams.location && {
+        location: { contains: searchParams.location, mode: 'insensitive' }
+      }),
+      ...(searchParams.type && {
+        OR: [
+          { property_type: { equals: searchParams.type, mode: 'insensitive' } },
+          { property_types: { slug: searchParams.type } }
+        ]
+      }),
+      ...(searchParams.category && {
+        property_categories: { slug: searchParams.category }
+      }),
+      ...(searchParams.minPrice && {
+        price: { gte: Number(searchParams.minPrice) }
+      }),
+      ...(searchParams.maxPrice && {
+        price: { lte: Number(searchParams.maxPrice) }
+      }),
+    },
+    include: {
+      listing_images: {
+        orderBy: { display_order: 'asc' }
+      },
+      property_categories: true,
+      property_types: true,
+    },
+    orderBy: { created_at: 'desc' }
+  })
 
-  // Add filters
-  if (searchParams.search) {
-    const searchPattern = '%' + searchParams.search + '%'
-    query = sql`${query} AND (l.title ILIKE ${searchPattern} OR l.location ILIKE ${searchPattern})`
-  }
-  if (searchParams.location) {
-    query = sql`${query} AND l.location ILIKE ${'%' + searchParams.location + '%'}`
-  }
-  if (searchParams.type) {
-    // Support both old text column and new relation
-    query = sql`${query} AND (l.property_type ILIKE ${searchParams.type} OR pt.slug = ${searchParams.type})`
-  }
-  if (searchParams.category) {
-    query = sql`${query} AND pc.slug = ${searchParams.category}`
-  }
-  if (searchParams.minPrice) {
-    query = sql`${query} AND l.price >= ${Number(searchParams.minPrice)}`
-  }
-  if (searchParams.maxPrice) {
-    query = sql`${query} AND l.price <= ${Number(searchParams.maxPrice)}`
-  }
-
-  // Finalize query
-  const rows = await sql`
-    ${query}
-    GROUP BY l.id, pc.name, pt.name
-    ORDER BY l.created_at DESC
-  `
-  
-  return rows as unknown as ListingWithImages[]
+  // Transform to match the expected ListingWithImages type
+  return listings.map(listing => ({
+    id: listing.id,
+    user_id: listing.user_id,
+    title: listing.title,
+    description: listing.description,
+    price: Number(listing.price),
+    location: listing.location,
+    place_id: listing.place_id,
+    property_type: listing.property_type,
+    category_id: listing.category_id,
+    type_id: listing.type_id,
+    bedrooms: listing.bedrooms,
+    bathrooms: listing.bathrooms,
+    sqft: listing.sqft,
+    status: listing.status as 'active' | 'sold' | 'hidden',
+    created_at: listing.created_at,
+    images: listing.listing_images.map(img => ({
+      id: img.id,
+      listing_id: img.listing_id,
+      url: img.url,
+      display_order: img.display_order,
+      created_at: img.created_at
+    })),
+    category: listing.property_categories?.name,
+    type: listing.property_types?.name,
+  })) as ListingWithImages[]
 }
 
 async function getFilterOptions() {
   const [categories, types] = await Promise.all([
-    sql`SELECT name, slug FROM property_categories ORDER BY name`,
-    sql`SELECT name, slug FROM property_types ORDER BY name`
+    prisma.property_categories.findMany({
+      select: { name: true, slug: true },
+      orderBy: { name: 'asc' }
+    }),
+    prisma.property_types.findMany({
+      select: { name: true, slug: true },
+      orderBy: { name: 'asc' }
+    })
   ])
-  return {
-    categories: categories as unknown as { name: string; slug: string }[],
-    types: types as unknown as { name: string; slug: string }[]
-  }
+  return { categories, types }
 }
 
 export default async function Home(props: { searchParams: SearchParams }) {
   const searchParams = await props.searchParams
   const cookieStore = await cookies()
-  const isEditMode = cookieStore.get('edit_mode')?.value === 'true'
-  
   const filters = {
     search: typeof searchParams.search === 'string' ? searchParams.search : undefined,
     location: typeof searchParams.location === 'string' ? searchParams.location : undefined,
@@ -102,11 +109,12 @@ export default async function Home(props: { searchParams: SearchParams }) {
     maxPrice: typeof searchParams.maxPrice === 'string' ? searchParams.maxPrice : undefined,
   }
 
-  const [listings, filterOptions, sections, savedIds] = await Promise.all([
+  const [listings, filterOptions, sections, savedIds, banners] = await Promise.all([
     getListings(filters),
     getFilterOptions(),
     getSections(),
-    getSavedListingIds()
+    getSavedListingIds(),
+    getBanners() as Promise<any[]>
   ])
 
   const savedListingIds = new Set(savedIds)
@@ -115,58 +123,48 @@ export default async function Home(props: { searchParams: SearchParams }) {
   const showFeatured = !filters.search && !filters.location && !filters.type && !filters.category && !filters.minPrice && !filters.maxPrice
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
-      {/* Header */}
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 px-4 py-4 backdrop-blur-md">
-        <div className="mx-auto max-w-5xl">
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">AgentFolio</h1>
-        </div>
-      </header>
+    <div className="min-h-screen bg-slate-50">
 
       {/* Main Content */}
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-[var(--brand-navy)]">Find Your Dream Home</h2>
-          <p className="mt-2 text-lg text-slate-500">Discover the best properties in the market.</p>
+      <main className="mx-auto max-w-5xl px-4 py-8 pb-24">
+        {/* Hero Banners (Adv Banner) */}
+        <BannerSection banners={banners} position="hero" />
+
+        {/* Category Icons (Category buttons) */}
+        <div className="mb-6">
+          <CategoryIconsSection />
         </div>
 
-        <ListingFilters 
+        {/* Searchbar with filter button inside right */}
+        <ListingFilters
           categories={filterOptions.categories}
           types={filterOptions.types}
         />
 
-        {showFeatured && sections.map((section) => (
-          <DynamicSection 
-            key={section.id} 
-            section={section} 
-            savedListingIds={savedListingIds} 
-            isEditMode={isEditMode}
+        {/* Dynamic Sections */}
+        {showFeatured && sections.length > 0 && sections.map(section => (
+          <DynamicSection
+            key={section.id}
+            section={section}
+            savedListingIds={savedListingIds}
           />
         ))}
 
-        {/* 
-        {showFeatured && (
-          <>
-             <div className="my-12 h-px bg-slate-200" />
-             <div className="mb-8">
-                <h2 className="text-2xl font-bold text-[var(--brand-navy)]">All Properties</h2>
-             </div>
-          </>
+        {/* Filtered Results */}
+        {!showFeatured && (
+          <div className="my-12">
+            <PropertyCarousel
+              listings={listings}
+              savedListingIds={savedListingIds}
+            />
+          </div>
         )}
 
-        {listings.length === 0 ? (
-          <div className="flex h-60 flex-col items-center justify-center rounded-3xl bg-white p-8 text-center shadow-card">
-            <div className="rounded-full bg-slate-100 p-4 mb-4">
-              <HomeIcon className="h-8 w-8 text-slate-400" />
-            </div>
-            <p className="text-xl font-semibold text-[var(--brand-navy)]">No properties found</p>
-            <p className="mt-2 text-slate-500">Try adjusting your search filters to find what you&apos;re looking for.</p>
-          </div>
-        ) : (
-          <PropertyCarousel listings={listings} savedListingIds={savedListingIds} />
-        )} 
-        */}
+        {/* Footer Banners */}
+        <BannerSection banners={banners} position="footer" />
       </main>
+
+
     </div>
   )
 }

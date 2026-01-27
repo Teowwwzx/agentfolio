@@ -1,16 +1,21 @@
 import { SignJWT, jwtVerify, JWTPayload } from 'jose'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
+import { prisma } from './prisma'
 
-const secretKey = process.env.JWT_SECRET || 'secret'
+const secretKey = process.env.JWT_SECRET
+if (!secretKey) {
+  throw new Error('JWT_SECRET environment variable is required')
+}
 const key = new TextEncoder().encode(secretKey)
 
 interface SessionPayload extends JWTPayload {
   user: {
     id: string
-    email: string | unknown
+    email: string
     name: string
-    role: string
+    role: 'agent' | 'admin'
   }
   expires: Date | string
 }
@@ -30,59 +35,128 @@ export async function decrypt(input: string): Promise<SessionPayload> {
   return payload as unknown as SessionPayload
 }
 
-export async function login(formData: FormData) {
-  // Verify credentials && get the user
-  // For MVP, hardcoded check. In real app, check against DB users table or Neon Auth
-  const email = formData.get('email')
-  const password = formData.get('password')
+// Agent login
+export async function loginAgent(formData: FormData) {
+  const email = formData.get('email') as string
+  const password = formData.get('password') as string
 
-  // Simple hardcoded check for MVP
-  if (email === 'admin@example.com' && password === 'admin123') {
-     // Use the seeded agent ID
-     const user = { 
-       id: '9a3b1d8c-1a6f-4d8f-bc7e-2b1a4c77e9f2',
-       email, 
-       name: 'Agent User', 
-       role: 'agent' 
-     }
-     
-     // Create the session
-     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000)
-     const session = await encrypt({ user, expires })
-    
-     // Save the session in a cookie
-     const cookieStore = await cookies()
-     cookieStore.set('session', session, { expires, httpOnly: true })
-     
-     return true
+  if (!email || !password) {
+    return { success: false, error: 'Email and password required' }
   }
 
-  if (email === 'super@example.com' && password === 'super123') {
-    const user = { 
-      id: '00000000-0000-0000-0000-000000000000', // Special ID for super admin
-      email, 
-      name: 'Super Admin', 
-      role: 'super_admin' 
+  try {
+    const user = await prisma.users.findFirst({
+      where: { email, role: 'agent' }
+    })
+
+    if (!user) {
+      return { success: false, error: 'Invalid credentials' }
     }
-    
-    // Create the session
+
+    if (user.status !== 'active') {
+      return { success: false, error: 'Account is not active' }
+    }
+
+    const isValid = await bcrypt.compare(password, user.hashed_password)
+    if (!isValid) {
+      return { success: false, error: 'Invalid credentials' }
+    }
+
+    // Get profile name
+    const profile = await prisma.profiles.findUnique({
+      where: { id: user.id },
+      select: { full_name: true }
+    })
+
+    // Create session
+    const sessionUser = {
+      id: user.id,
+      email: user.email,
+      name: profile?.full_name || 'Agent',
+      role: 'agent' as const,
+    }
+
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000)
-    const session = await encrypt({ user, expires })
-   
-    // Save the session in a cookie
+    const session = await encrypt({ user: sessionUser, expires })
+
     const cookieStore = await cookies()
-    cookieStore.set('session', session, { expires, httpOnly: true })
-    
-    return true
- }
-  
-  return false
+    cookieStore.set('session', session, {
+      expires,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/'
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error('Login error:', error)
+    return { success: false, error: 'Login failed' }
+  }
+}
+
+// Admin login
+export async function loginAdmin(formData: FormData) {
+  const email = formData.get('email') as string
+  const password = formData.get('password') as string
+
+  if (!email || !password) {
+    return { success: false, error: 'Email and password required' }
+  }
+
+  try {
+    const user = await prisma.users.findFirst({
+      where: { email, role: 'admin' }
+    })
+
+    if (!user) {
+      return { success: false, error: 'Invalid credentials' }
+    }
+
+    if (user.status !== 'active') {
+      return { success: false, error: 'Account is not active' }
+    }
+
+    const isValid = await bcrypt.compare(password, user.hashed_password)
+    if (!isValid) {
+      return { success: false, error: 'Invalid credentials' }
+    }
+
+    // Create session
+    const sessionUser = {
+      id: user.id,
+      email: user.email,
+      name: 'Admin',
+      role: 'admin' as const,
+    }
+
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    const session = await encrypt({ user: sessionUser, expires })
+
+    const cookieStore = await cookies()
+    cookieStore.set('admin_session', session, {
+      expires,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/admin'
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error('Admin login error:', error)
+    return { success: false, error: 'Login failed' }
+  }
 }
 
 export async function logout() {
-  // Destroy the session
   const cookieStore = await cookies()
   cookieStore.set('session', '', { expires: new Date(0) })
+}
+
+export async function logoutAdmin() {
+  const cookieStore = await cookies()
+  cookieStore.set('admin_session', '', { expires: new Date(0) })
 }
 
 export async function getSession() {
@@ -96,11 +170,22 @@ export async function getSession() {
   }
 }
 
+export async function getAdminSession() {
+  const cookieStore = await cookies()
+  const session = cookieStore.get('admin_session')?.value
+  if (!session) return null
+  try {
+    const payload = await decrypt(session)
+    return payload.user.role === 'admin' ? payload : null
+  } catch {
+    return null
+  }
+}
+
 export async function updateSession(request: NextRequest) {
   const session = request.cookies.get('session')?.value
   if (!session) return
 
-  // Refresh the session so it doesn't expire
   const parsed = await decrypt(session)
   parsed.expires = new Date(Date.now() + 24 * 60 * 60 * 1000)
   const res = NextResponse.next()
@@ -108,7 +193,7 @@ export async function updateSession(request: NextRequest) {
     name: 'session',
     value: await encrypt(parsed),
     httpOnly: true,
-    expires: parsed.expires,
+    expires: parsed.expires as Date,
   })
   return res
 }
@@ -118,9 +203,20 @@ export async function verifySession() {
   if (!session || !session.user) {
     return { isAuth: false, userId: null, role: null }
   }
-  return { 
-    isAuth: true, 
-    userId: session.user.id, 
-    role: session.user.role 
+  return {
+    isAuth: true,
+    userId: session.user.id,
+    role: session.user.role,
+  }
+}
+
+export async function verifyAdminSession() {
+  const session = await getAdminSession()
+  if (!session || !session.user || session.user.role !== 'admin') {
+    return { isAuth: false, userId: null }
+  }
+  return {
+    isAuth: true,
+    userId: session.user.id,
   }
 }

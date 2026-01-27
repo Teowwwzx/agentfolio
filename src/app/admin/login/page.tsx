@@ -1,11 +1,36 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useState } from 'react'
 import { loginAction } from '@/actions/auth'
 import { Button } from '@/components/ui/button'
+import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
-  const [state, action, isPending] = useActionState(loginAction, undefined)
+  const [error, setError] = useState<string | null>(null)
+  const [isPending, setIsPending] = useState(false)
+  const router = useRouter()
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setIsPending(true)
+    setError(null)
+
+    const formData = new FormData(e.currentTarget)
+
+    try {
+      const result = await loginAction(formData)
+      if (result?.success) {
+        router.push('/admin')
+        router.refresh()
+      } else {
+        setError(result?.error || 'Login failed')
+      }
+    } catch (err) {
+      setError('An unexpected error occurred')
+    } finally {
+      setIsPending(false)
+    }
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50">
@@ -15,7 +40,7 @@ export default function LoginPage() {
           <p className="text-sm text-slate-500">Sign in to manage listings</p>
         </div>
 
-        <form action={action} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-slate-700">
               Email
@@ -44,15 +69,15 @@ export default function LoginPage() {
             />
           </div>
 
-          {state?.error && (
-            <p className="text-sm text-red-500">{state.error}</p>
+          {error && (
+            <p className="text-sm text-red-500">{error}</p>
           )}
 
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending ? 'Signing in...' : 'Sign In'}
           </Button>
         </form>
-        
+
         <div className="mt-4 text-center text-xs text-slate-400">
           <p>Demo Credentials:</p>
           <p>admin@example.com / admin123</p>

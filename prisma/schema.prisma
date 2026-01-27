@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model banners {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String   @db.Uuid
+  title         String
+  image_url     String
+  link_url      String?
+  position      String?  @default("hero")
+  is_active     Boolean? @default(true)
+  display_order Int?     @default(0)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @db.Timestamptz(6)
+  profiles      profiles @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([display_order])
+  @@index([position, is_active], map: "banners_position_active_idx")
+  @@index([user_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model listing_images {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listing_id    String   @db.Uuid
+  url           String
+  display_order Int      @default(0)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  listings      listings @relation(fields: [listing_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([listing_id, display_order], map: "listing_images_listing_id_display_order_uniq")
+  @@index([listing_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model listings {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String               @db.Uuid
+  title               String
+  description         String?
+  price               Decimal?             @db.Decimal
+  location            String?
+  property_type       String?
+  bedrooms            Int?
+  bathrooms           Int?
+  sqft                Int?
+  status              String               @default("active")
+  created_at          DateTime             @default(now()) @db.Timestamptz(6)
+  place_id            String?
+  category_id         String?              @db.Uuid
+  type_id             String?              @db.Uuid
+  updated_at          DateTime             @default(now()) @db.Timestamptz(6)
+  listing_images      listing_images[]
+  property_categories property_categories? @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  property_types      property_types?      @relation(fields: [type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  profiles            profiles             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([location])
+  @@index([property_type])
+  @@index([status])
+  @@index([user_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model page_sections {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title         String
+  section_type  String
+  layout_type   String   @default("grid_3")
+  filter_config Json?
+  display_order Int      @default(0)
+  is_active     Boolean? @default(true)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model profiles {
+  id            String     @id @db.Uuid
+  full_name     String?
+  phone_number  String?
+  avatar_url    String?
+  updated_at    DateTime   @default(now()) @db.Timestamptz(6)
+  description   String?
+  email         String?    @unique
+  password_hash String?
+  role          String?    @default("agent")
+  banners       banners[]
+  listings      listings[]
+  intro_title       String?  @default("Find Your Dream Home")
+  intro_description String?  @default("Discover the best properties in the market.")
+
+  @@index([role])
+}
+
+model property_categories {
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String     @unique
+  slug       String     @unique
+  created_at DateTime   @default(now()) @db.Timestamptz(6)
+  listings   listings[]
+}
+
+model property_types {
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String     @unique
+  slug       String     @unique
+  created_at DateTime   @default(now()) @db.Timestamptz(6)
+  listings   listings[]
+}
+
+model schema_migrations {
+  filename   String   @id
+  applied_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model users {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String   @unique
+  hashed_password String
+  role            String   @default("agent")
+  status          String   @default("active")
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+}

@@ -1,149 +1,135 @@
 import crypto from 'node:crypto'
-
+import bcrypt from 'bcryptjs'
 import { getDb } from './db'
-
-type ListingSeed = {
-  title: string
-  description: string
-  price: string
-  location: string
-  place_id: string
-  propertyType: string
-  bedrooms: number
-  bathrooms: number
-  sqft: number
-  status: 'active' | 'sold' | 'hidden'
-  imageUrls: string[]
-}
-
-const agentId = '9a3b1d8c-1a6f-4d8f-bc7e-2b1a4c77e9f2'
-
-const listings: ListingSeed[] = [
-  {
-    title: 'Modern Condo near LRT (High Floor)',
-    description: 'Move-in ready. Great city views. 2 parking bays.',
-    price: '520000',
-    location: 'Kuala Lumpur',
-    place_id: 'ChIJSzzWj2e3zDERQqGqC8k5v7E',
-    propertyType: 'Condo',
-    bedrooms: 3,
-    bathrooms: 2,
-    sqft: 980,
-    status: 'active',
-    imageUrls: [
-      'https://picsum.photos/seed/agentfolio-1a/1200/800',
-      'https://picsum.photos/seed/agentfolio-1b/1200/800',
-      'https://picsum.photos/seed/agentfolio-1c/1200/800'
-    ]
-  },
-  {
-    title: 'Corner Terrace in Puchong (Renovated)',
-    description: 'Quiet neighborhood. Extended kitchen. 10 min to amenities.',
-    price: '890000',
-    location: 'Puchong',
-    place_id: 'ChIJb2c_1cJOzDERsS9qC8k5v7E',
-    propertyType: 'Terrace',
-    bedrooms: 4,
-    bathrooms: 3,
-    sqft: 1800,
-    status: 'active',
-    imageUrls: [
-      'https://picsum.photos/seed/agentfolio-2a/1200/800',
-      'https://picsum.photos/seed/agentfolio-2b/1200/800'
-    ]
-  },
-  {
-    title: 'Affordable Studio (Great for Investment)',
-    description: 'Low entry price. Strong rental demand. Near universities.',
-    price: '230000',
-    location: 'Kuala Lumpur',
-    place_id: 'ChIJSzzWj2e3zDERQqGqC8k5v7E',
-    propertyType: 'Studio',
-    bedrooms: 1,
-    bathrooms: 1,
-    sqft: 450,
-    status: 'hidden',
-    imageUrls: [
-      'https://picsum.photos/seed/agentfolio-3a/1200/800'
-    ]
-  }
-]
 
 async function main() {
   const sql = getDb()
 
   try {
-    await sql`
-      insert into public.profiles (id, full_name, description, phone_number, avatar_url)
-      values (
-        ${agentId}::uuid, 
-        ${'Aiman Tan'}, 
-        ${'Experienced real estate professional specializing in residential properties in KL and Selangor. I help first-time homebuyers and investors find the best deals.'},
-        ${'60123456789'}, 
-        ${''}
-      )
-      on conflict (id) do update
-      set full_name = excluded.full_name,
-          description = excluded.description,
-          phone_number = excluded.phone_number,
-          avatar_url = excluded.avatar_url
+    // Hash password
+    const hashedPassword = await bcrypt.hash('password123', 10)
+
+    // Create admin user
+    const [adminUser] = await sql`
+      INSERT INTO public.users (email, hashed_password, role, status)
+      VALUES ('admin@agentfolio.com', ${hashedPassword}, 'admin', 'active')
+      ON CONFLICT (email) DO UPDATE
+      SET hashed_password = EXCLUDED.hashed_password
+      RETURNING id
     `
+    console.log(`Created/Updated admin user: ${adminUser.id}`)
 
-    const insertedListingIds: string[] = []
+    // Create agent user
+    const [agentUser] = await sql`
+      INSERT INTO public.users (email, hashed_password, role, status)
+      VALUES ('agent@agentfolio.com', ${hashedPassword}, 'agent', 'active')
+      ON CONFLICT (email) DO UPDATE
+      SET hashed_password = EXCLUDED.hashed_password
+      RETURNING id
+    `
+    console.log(`Created/Updated agent user: ${agentUser.id}`)
 
-    for (const listing of listings) {
+    // Create/update agent profile
+    await sql`
+      INSERT INTO public.profiles (id, full_name, description, phone_number, email)
+      VALUES (
+        ${agentUser.id}::uuid,
+        'Demo Agent',
+        'Experienced property agent specializing in residential properties.',
+        '60123456789',
+        'agent@agentfolio.com'
+      )
+      ON CONFLICT (id) DO UPDATE
+      SET 
+        full_name = EXCLUDED.full_name,
+        description = EXCLUDED.description,
+        phone_number = EXCLUDED.phone_number,
+        email = EXCLUDED.email
+    `
+    console.log(`Created/Updated agent profile`)
+
+    // Seed some sample listings for the agent
+    const sampleListings = [
+      {
+        title: 'Modern 3BR Condo in KLCC',
+        description: 'Stunning city views, fully furnished, 2 parking bays, swimming pool and gym.',
+        price: 850000,
+        location: 'Kuala Lumpur',
+        bedrooms: 3,
+        bathrooms: 2,
+        sqft: 1200,
+      },
+      {
+        title: 'Spacious Landed House in Petaling Jaya',
+        description: 'Corner lot, renovated kitchen, large backyard, quiet neighborhood.',
+        price: 1200000,
+        location: 'Petaling Jaya',
+        bedrooms: 4,
+        bathrooms: 3,
+        sqft: 2400,
+      },
+    ]
+
+    for (const listing of sampleListings) {
       const listingId = crypto.randomUUID()
-      insertedListingIds.push(listingId)
-
       await sql`
-        insert into public.listings (
+        INSERT INTO public.listings (
           id,
           user_id,
           title,
           description,
           price,
           location,
-          place_id,
-          property_type,
           bedrooms,
           bathrooms,
           sqft,
           status
-        ) values (
+        ) VALUES (
           ${listingId}::uuid,
-          ${agentId}::uuid,
+          ${agentUser.id}::uuid,
           ${listing.title},
           ${listing.description},
-          ${listing.price}::numeric,
+          ${listing.price},
           ${listing.location},
-          ${listing.place_id},
-          ${listing.propertyType},
           ${listing.bedrooms},
           ${listing.bathrooms},
           ${listing.sqft},
-          ${listing.status}
+          'active'
         )
-        on conflict (id) do nothing
+        ON CONFLICT (id) DO NOTHING
       `
 
-      await sql`delete from public.listing_images where listing_id = ${listingId}::uuid`
-
-      for (let i = 0; i < listing.imageUrls.length; i += 1) {
-        const url = listing.imageUrls[i]
-        await sql`
-          insert into public.listing_images (id, listing_id, url, display_order)
-          values (${crypto.randomUUID()}::uuid, ${listingId}::uuid, ${url}, ${i})
-        `
-      }
+      // Add sample image
+      await sql`
+        INSERT INTO public.listing_images (id, listing_id, url, display_order)
+        VALUES (
+          ${crypto.randomUUID()}::uuid,
+          ${listingId}::uuid,
+          'https://picsum.photos/1200/800?random=' || ${listingId}::text,
+          0
+        )
+        ON CONFLICT (listing_id, display_order) DO NOTHING
+      `
     }
 
-    process.stdout.write(`Seeded profile ${agentId} and ${insertedListingIds.length} listings\n`)
+    console.log(`\n✅ Seed completed successfully!\n`)
+    console.log(`Admin Login:`)
+    console.log(`  Email: admin@agentfolio.com`)
+    console.log(`  Password: password123`)
+    console.log(`  URL: http://localhost:3000/admin/auth/login\n`)
+    console.log(`Agent Login:`)
+    console.log(`  Email: agent@agentfolio.com`)
+    console.log(`  Password: password123`)
+    console.log(`  URL: http://localhost:3000/agent/login\n`)
+  } catch (error) {
+    console.error('Seed error:', error)
+    throw error
   } finally {
     await sql.end({ timeout: 5 })
   }
 }
 
 main().catch((err) => {
-  process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`)
+  console.error(err instanceof Error ? err.message : String(err))
   process.exit(1)
 })

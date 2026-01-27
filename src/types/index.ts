@@ -36,6 +36,10 @@ export interface Profile {
 // Composite type for UI
 export interface ListingWithImages extends Listing {
   images: ListingImage[]
+  // Agent details for property page
+  agent_name?: string
+  phone_number?: string
+  agent_email?: string
   isRenovated?: boolean
   tags?: string[]
 }

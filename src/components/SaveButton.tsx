@@ -1,50 +1,51 @@
-
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { Heart } from 'lucide-react'
-import { toggleSavedProperty } from '@/actions/user'
-import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 interface SaveButtonProps {
   listingId: string
   initialSaved?: boolean
   className?: string
+  onToggle?: (id: string, saved: boolean) => void
 }
 
-export function SaveButton({ listingId, initialSaved = false, className }: SaveButtonProps) {
+export function SaveButton({ listingId, initialSaved = false, className, onToggle }: SaveButtonProps) {
   const [isSaved, setIsSaved] = useState(initialSaved)
-  const [isPending, startTransition] = useTransition()
-  const router = useRouter()
 
-  const handleToggle = async (e: React.MouseEvent) => {
+  const handleToggle = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
 
-    // Optimistic update
     const newState = !isSaved
     setIsSaved(newState)
 
-    startTransition(async () => {
-      try {
-        await toggleSavedProperty(listingId)
-        router.refresh()
-      } catch (error) {
-        // Revert on error
-        setIsSaved(!newState)
-        // Ideally show toast here (e.g. "Please login to save")
-        if (confirm("Please login to save properties. Go to login?")) {
-           router.push('/login')
-        }
+    // Update localStorage
+    try {
+      const saved = JSON.parse(localStorage.getItem('agentfolio_saved_properties') || '[]') as string[]
+      let updated: string[]
+      if (newState) {
+        updated = [...new Set([...saved, listingId])]
+      } else {
+        updated = saved.filter(id => id !== listingId)
       }
-    })
+      localStorage.setItem('agentfolio_saved_properties', JSON.stringify(updated))
+
+      // Notify parent if callback provided
+      if (onToggle) {
+        onToggle(listingId, newState)
+      }
+    } catch (error) {
+      console.error('Error updating saved properties:', error)
+      // Revert on error
+      setIsSaved(!newState)
+    }
   }
 
   return (
     <button
       onClick={handleToggle}
-      disabled={isPending}
       className={cn(
         "p-2 rounded-full transition-colors hover:bg-slate-100",
         isSaved ? "text-red-500" : "text-slate-400 hover:text-red-500",

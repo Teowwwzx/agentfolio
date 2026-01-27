@@ -1,14 +1,14 @@
 'use server'
 
-import { login, logout } from '@/lib/auth'
+import { loginAdmin, logout } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 
-export async function loginAction(prevState: unknown, formData: FormData) {
-  const success = await login(formData)
-  if (success) {
-    redirect('/admin')
+export async function loginAction(formData: FormData) {
+  const result = await loginAdmin(formData)
+  if (result.success) {
+    return { success: true }
   } else {
-    return { error: 'Invalid credentials' }
+    return { success: false, error: result.error || 'Invalid credentials' }
   }
 }
 

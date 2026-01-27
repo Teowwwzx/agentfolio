@@ -61,7 +61,7 @@ export function ListingFilters({ categories, types }: ListingFiltersProps) {
     if (debouncedMaxPrice) params.set('maxPrice', debouncedMaxPrice)
 
     router.push(`/?${params.toString()}`)
-    
+
     // Log search history (fire and forget)
     logSearch(debouncedSearch, {
       location: debouncedLocation,
@@ -77,32 +77,32 @@ export function ListingFilters({ categories, types }: ListingFiltersProps) {
   return (
     <div className="mb-8">
       {/* Search Bar & Toggle */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
-        <div className="relative flex-1 max-w-xl">
-          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search properties..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-full border-none bg-white py-4 pl-12 pr-4 shadow-soft outline-none ring-1 ring-slate-100 transition-all focus:ring-2 focus:ring-[var(--brand-navy)] placeholder:text-slate-400 text-base"
-          />
+      {/* Search Bar & Toggle */}
+      <div className="relative max-w-2xl mx-auto mb-6">
+        <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+        <input
+          type="text"
+          placeholder="Search properties..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full rounded-full border-none bg-white py-4 pl-12 pr-32 shadow-soft outline-none ring-1 ring-slate-100 transition-all focus:ring-2 focus:ring-[var(--brand-navy)] placeholder:text-slate-400 text-base"
+        />
+
+        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+          <Button
+            onClick={() => setIsOpen(!isOpen)}
+            size="sm"
+            className="rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-4 h-10 gap-2 transition-all"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            <span className="hidden sm:inline">Filter</span>
+            {activeFiltersCount > 0 && (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand-navy)] text-[10px] font-bold text-white">
+                {activeFiltersCount}
+              </span>
+            )}
+          </Button>
         </div>
-        
-        <Button 
-          onClick={() => setIsOpen(!isOpen)} 
-          variant="ghost" 
-          className="flex items-center gap-2 rounded-full bg-white px-6 py-6 shadow-soft hover:shadow-lg hover:bg-white transition-all ring-1 ring-slate-100"
-        >
-          <SlidersHorizontal className="h-4 w-4 text-slate-600" />
-          <span className="text-slate-700 font-medium">Filters</span>
-          {activeFiltersCount > 0 && (
-            <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand-navy)] text-[10px] font-bold text-white">
-              {activeFiltersCount}
-            </span>
-          )}
-          {isOpen ? <ChevronUp className="h-4 w-4 ml-2 text-slate-400" /> : <ChevronDown className="h-4 w-4 ml-2 text-slate-400" />}
-        </Button>
       </div>
 
       {/* Collapsible Content */}
@@ -128,7 +128,7 @@ export function ListingFilters({ categories, types }: ListingFiltersProps) {
             </div>
 
             {/* Category (Buy/Rent/New Project) */}
-             <div>
+            <div>
               <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Category</label>
               <div className="relative group">
                 <Tag className="absolute left-4 top-3.5 h-4 w-4 text-slate-400 group-focus-within:text-[var(--brand-navy)] transition-colors" />

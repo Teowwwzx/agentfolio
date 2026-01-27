@@ -4,6 +4,7 @@ import { MapPin, Bed, Bath, Square } from 'lucide-react'
 import { ListingWithImages } from '@/types'
 import { cn } from '@/lib/utils'
 import { SaveButton } from './SaveButton'
+import { formatCurrency, formatNumber } from '@/lib/format'
 
 interface PropertyCardProps {
   listing: ListingWithImages
@@ -12,14 +13,14 @@ interface PropertyCardProps {
 }
 
 export function PropertyCard({ listing, className, isSaved = false }: PropertyCardProps) {
-  const thumbnail = listing.images.length > 0 
-    ? listing.images.sort((a, b) => a.display_order - b.display_order)[0].url 
+  const thumbnail = listing.images.length > 0
+    ? listing.images.sort((a, b) => a.display_order - b.display_order)[0].url
     : 'https://placehold.co/600x400?text=No+Image'
 
   // Extract "Renovated" from title or use isRenovated prop
   let displayTitle = listing.title;
   const isRenovated = listing.title.toLowerCase().includes('(renovated)') || listing.isRenovated;
-  
+
   if (displayTitle.toLowerCase().includes('(renovated)')) {
     displayTitle = displayTitle.replace(/\(renovated\)/i, '').trim();
   }
@@ -40,10 +41,10 @@ export function PropertyCard({ listing, className, isSaved = false }: PropertyCa
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
           <div className="absolute bottom-2 left-2 rounded-lg bg-black/70 px-3 py-1.5 text-sm font-semibold text-white backdrop-blur-md">
-            RM {Number(listing.price).toLocaleString()}
+            {formatCurrency(listing.price)}
           </div>
           <div className="absolute top-2 right-2 z-10">
-             <SaveButton listingId={listing.id} initialSaved={isSaved} className="bg-white/80 backdrop-blur-sm shadow-sm" />
+            <SaveButton listingId={listing.id} initialSaved={isSaved} className="bg-white/80 backdrop-blur-sm shadow-sm" />
           </div>
           <div className="absolute top-2 left-2 flex flex-col gap-1">
             {listing.status !== 'active' && (
@@ -64,7 +65,7 @@ export function PropertyCard({ listing, className, isSaved = false }: PropertyCa
           <h3 className="line-clamp-1 text-lg font-bold tracking-tight text-[var(--brand-navy)] group-hover:text-[var(--brand-accent)] transition-colors">
             {displayTitle}
           </h3>
-          
+
           <div className="mt-2 flex items-center text-sm font-medium text-slate-500">
             <MapPin className="mr-1.5 h-4 w-4 text-slate-400" />
             <span className="line-clamp-1">{listing.location}</span>
@@ -92,7 +93,7 @@ export function PropertyCard({ listing, className, isSaved = false }: PropertyCa
             </div>
             <div className="flex items-center gap-1.5">
               <Square className="h-4 w-4 text-slate-400" />
-              <span>{listing.sqft} sqft</span>
+              <span>{formatNumber(listing.sqft)} sqft</span>
             </div>
           </div>
         </div>

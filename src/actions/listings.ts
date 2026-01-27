@@ -2,9 +2,10 @@
 
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import sql from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { ListingWithImages } from '@/types'
+import { Prisma } from '@prisma/client'
 
 // Helper to ensure auth
 async function requireAuth() {
@@ -25,7 +26,6 @@ export async function createListingAction(prevState: unknown, formData: FormData
   const price = formData.get('price') as string
   const location = formData.get('location') as string
   const placeId = formData.get('placeId') as string
-  // const propertyType = formData.get('propertyType') as string // Deprecated
   const categoryId = formData.get('categoryId') as string
   const typeId = formData.get('typeId') as string
   const bedrooms = formData.get('bedrooms') as string
@@ -33,9 +33,6 @@ export async function createListingAction(prevState: unknown, formData: FormData
   const sqft = formData.get('sqft') as string
   const status = formData.get('status') as string
   const imageUrlsString = formData.get('imageUrls') as string
-  const tags = formData.getAll('tags') as string[]
-  
-  console.log('createListingAction data:', { title, price, categoryId, typeId, tagsCount: tags.length, imageUrlsString })
 
   const userId = session?.user?.id
 
@@ -45,38 +42,35 @@ export async function createListingAction(prevState: unknown, formData: FormData
   }
 
   try {
-    const [listing] = await sql`
-      INSERT INTO listings (
-        user_id, title, description, price, location, place_id, category_id, type_id, bedrooms, bathrooms, sqft, status
-      ) VALUES (
-        ${userId}, ${title || null}, ${description || null}, ${price || null}, ${location || null}, ${placeId || null}, ${categoryId || null}, ${typeId || null}, ${bedrooms || null}, ${bathrooms || null}, ${sqft || null}, ${status || null}
-      )
-      RETURNING id
-    `
+    const listing = await prisma.listings.create({
+      data: {
+        user_id: userId,
+        title: title || '',
+        description: description || null,
+        price: price ? new Prisma.Decimal(price) : null,
+        location: location || null,
+        place_id: placeId || null,
+        category_id: categoryId || null,
+        type_id: typeId || null,
+        bedrooms: bedrooms ? parseInt(bedrooms) : null,
+        bathrooms: bathrooms ? parseInt(bathrooms) : null,
+        sqft: sqft ? parseInt(sqft) : null,
+        status: status || 'active'
+      }
+    })
     console.log('Listing created with ID:', listing.id)
-    
+
     // Handle Images
     if (imageUrlsString) {
       const urls = imageUrlsString.split(',').filter(Boolean)
       console.log('Inserting images:', urls.length)
-      for (let i = 0; i < urls.length; i++) {
-        await sql`
-          INSERT INTO listing_images (listing_id, url, display_order)
-          VALUES (${listing.id}, ${urls[i]}, ${i})
-        `
-      }
-    }
-
-    // Handle Tags
-    if (tags && tags.length > 0) {
-      console.log('Inserting tags:', tags.length)
-      for (const tagId of tags) {
-        await sql`
-          INSERT INTO listing_tags (listing_id, tag_id)
-          VALUES (${listing.id}, ${tagId})
-          ON CONFLICT DO NOTHING
-        `
-      }
+      await prisma.listing_images.createMany({
+        data: urls.map((url, index) => ({
+          listing_id: listing.id,
+          url,
+          display_order: index
+        }))
+      })
     }
   } catch (e) {
     console.error('Error creating listing:', e)
@@ -85,8 +79,14 @@ export async function createListingAction(prevState: unknown, formData: FormData
 
   revalidatePath('/admin')
   revalidatePath('/admin/listings')
+  revalidatePath('/agent/listings')
   revalidatePath('/')
-  redirect('/admin')
+
+  if (session.user.role === 'agent') {
+    redirect('/agent/listings')
+  } else {
+    redirect('/admin')
+  }
 }
 
 export async function updateListingAction(prevState: unknown, formData: FormData) {
@@ -106,55 +106,40 @@ export async function updateListingAction(prevState: unknown, formData: FormData
   const sqft = formData.get('sqft') as string
   const status = formData.get('status') as string
   const imageUrlsString = formData.get('imageUrls') as string
-  const tags = formData.getAll('tags') as string[] // "tags" from checkboxes
-
-  console.log('updateListingAction data:', { id, title, price, tagsCount: tags.length })
 
   if (!id) return { error: 'Listing ID is required' }
 
   try {
-    await sql`
-      UPDATE listings SET
-        title = ${title || null},
-        description = ${description || null},
-        price = ${price || null},
-        location = ${location || null},
-        place_id = ${placeId || null},
-        category_id = ${categoryId || null},
-        type_id = ${typeId || null},
-        bedrooms = ${bedrooms || null},
-        bathrooms = ${bathrooms || null},
-        sqft = ${sqft || null},
-        status = ${status || null},
-        updated_at = NOW()
-      WHERE id = ${id}
-    `
+    await prisma.listings.update({
+      where: { id },
+      data: {
+        title: title || '',
+        description: description || null,
+        price: price ? new Prisma.Decimal(price) : null,
+        location: location || null,
+        place_id: placeId || null,
+        category_id: categoryId || null,
+        type_id: typeId || null,
+        bedrooms: bedrooms ? parseInt(bedrooms) : null,
+        bathrooms: bathrooms ? parseInt(bathrooms) : null,
+        sqft: sqft ? parseInt(sqft) : null,
+        status: status || 'active',
+        updated_at: new Date()
+      }
+    })
 
-    // Update Images: Delete all and re-insert (simplest strategy)
-    // Note: In production, might want to be smarter to avoid flickering or ID churn
-    await sql`DELETE FROM listing_images WHERE listing_id = ${id}`
+    // Update Images: Delete all and re-insert
+    await prisma.listing_images.deleteMany({ where: { listing_id: id } })
     if (imageUrlsString) {
       const urls = imageUrlsString.split(',').filter(Boolean)
-      for (let i = 0; i < urls.length; i++) {
-        await sql`
-          INSERT INTO listing_images (listing_id, url, display_order)
-          VALUES (${id}, ${urls[i]}, ${i})
-        `
-      }
+      await prisma.listing_images.createMany({
+        data: urls.map((url, index) => ({
+          listing_id: id,
+          url,
+          display_order: index
+        }))
+      })
     }
-
-    // Update Tags: Delete all and re-insert
-    await sql`DELETE FROM listing_tags WHERE listing_id = ${id}`
-    if (tags && tags.length > 0) {
-      for (const tagId of tags) {
-        await sql`
-          INSERT INTO listing_tags (listing_id, tag_id)
-          VALUES (${id}, ${tagId})
-          ON CONFLICT DO NOTHING
-        `
-      }
-    }
-
   } catch (e) {
     console.error('Error updating listing:', e)
     return { error: 'Failed to update listing' }
@@ -162,6 +147,7 @@ export async function updateListingAction(prevState: unknown, formData: FormData
 
   revalidatePath('/admin')
   revalidatePath('/admin/listings')
+  revalidatePath('/agent/listings')
   revalidatePath('/')
   return { success: true }
 }
@@ -169,13 +155,11 @@ export async function updateListingAction(prevState: unknown, formData: FormData
 export async function deleteListingAction(id: string) {
   console.log('deleteListingAction started for id:', id)
   await requireAuth()
-  
+
   try {
-    // Relying on ON DELETE CASCADE for related tables (images, tags) if set up. 
-    // If not, we should delete them first. Let's delete manually to be safe.
-    await sql`DELETE FROM listing_images WHERE listing_id = ${id}`
-    await sql`DELETE FROM listing_tags WHERE listing_id = ${id}`
-    await sql`DELETE FROM listings WHERE id = ${id}`
+    // Delete images first (cascade should handle this, but being explicit)
+    await prisma.listing_images.deleteMany({ where: { listing_id: id } })
+    await prisma.listings.delete({ where: { id } })
   } catch (e) {
     console.error('Error deleting listing:', e)
     return { error: 'Failed to delete listing' }
@@ -183,6 +167,7 @@ export async function deleteListingAction(id: string) {
 
   revalidatePath('/admin')
   revalidatePath('/admin/listings')
+  revalidatePath('/agent/listings')
   revalidatePath('/')
   return { success: true }
 }
@@ -204,80 +189,75 @@ export async function getAdminListings({
 } = {}) {
   const offset = (page - 1) * limit
 
-  // Base conditions
-  // We use sql helper for safe interpolation
-  // Dynamic query construction with postgres.js is done via helper functions or conditional arrays
-  // but for simplicity here we might need to be a bit verbose or use helper.
+  // Build where condition
+  const where: Prisma.listingsWhereInput = {}
 
-  // NOTE: Postgres.js doesn't compose dynamic WHERE easily without helper functions.
-  // We will fetch more and filter in DB if possible, or build the query parts.
-  
-  // Let's use a simpler approach: filtering
-  
-  // Construct the WHERE clause dynamically
-  const conditions = []
   if (query) {
-    conditions.push(sql`(title ILIKE ${'%' + query + '%'} OR location ILIKE ${'%' + query + '%'})`)
+    where.OR = [
+      { title: { contains: query, mode: 'insensitive' } },
+      { location: { contains: query, mode: 'insensitive' } }
+    ]
   }
   if (status && status !== 'all') {
-    conditions.push(sql`status = ${status}`)
+    where.status = status
   }
   if (categoryId && categoryId !== 'all') {
-    conditions.push(sql`category_id = ${categoryId}`)
+    where.category_id = categoryId
   }
   if (userId) {
-    conditions.push(sql`user_id = ${userId}`)
+    where.user_id = userId
   }
 
-  const whereClause = conditions.length > 0 
-    ? sql`WHERE ${conditions.reduce((a, b) => sql`${a} AND ${b}`)}`
-    : sql``
+  const [totalCount, listings] = await Promise.all([
+    prisma.listings.count({ where }),
+    prisma.listings.findMany({
+      where,
+      include: {
+        listing_images: {
+          orderBy: { display_order: 'asc' }
+        }
+      },
+      orderBy: { created_at: 'desc' },
+      skip: offset,
+      take: limit
+    })
+  ])
 
-  const [countResult] = await sql`
-    SELECT COUNT(*) as count FROM listings l
-    ${whereClause}
-  `
-  const totalCount = parseInt(countResult.count, 10)
   const totalPages = Math.ceil(totalCount / limit)
 
-  const rows = await sql`
-    SELECT 
-      l.*,
-      COALESCE(
-        json_agg(
-          json_build_object(
-            'id', li.id,
-            'listing_id', li.listing_id,
-            'url', li.url,
-            'display_order', li.display_order
-          ) ORDER BY li.display_order ASC
-        ) FILTER (WHERE li.id IS NOT NULL),
-        '[]'
-      ) as images,
-      (
-        SELECT COALESCE(json_agg(tag_id), '[]')
-        FROM listing_tags lt
-        WHERE lt.listing_id = l.id
-      ) as tag_ids,
-      (
-        SELECT COALESCE(json_agg(pt.name), '[]')
-        FROM listing_tags lt
-        JOIN property_tags pt ON lt.tag_id = pt.id
-        WHERE lt.listing_id = l.id
-      ) as tags
-    FROM listings l
-    LEFT JOIN listing_images li ON l.id = li.listing_id
-    ${whereClause}
-    GROUP BY l.id
-    ORDER BY l.created_at DESC
-    LIMIT ${limit} OFFSET ${offset}
-  `
-  
+  // Transform to expected format
+  const transformedListings = listings.map(listing => ({
+    id: listing.id,
+    user_id: listing.user_id,
+    title: listing.title,
+    description: listing.description,
+    price: listing.price ? Number(listing.price) : null,
+    location: listing.location,
+    place_id: listing.place_id,
+    property_type: listing.property_type,
+    category_id: listing.category_id,
+    type_id: listing.type_id,
+    bedrooms: listing.bedrooms,
+    bathrooms: listing.bathrooms,
+    sqft: listing.sqft,
+    status: listing.status,
+    created_at: listing.created_at,
+    updated_at: listing.updated_at,
+    images: listing.listing_images.map(img => ({
+      id: img.id,
+      listing_id: img.listing_id,
+      url: img.url,
+      display_order: img.display_order,
+      created_at: img.created_at
+    })),
+    tag_ids: [] as string[],
+    tags: [] as string[]
+  }))
+
   return {
-    listings: rows as unknown as (ListingWithImages & { tag_ids: string[] })[],
+    listings: transformedListings as (ListingWithImages & { tag_ids: string[] })[],
     totalCount,
     totalPages,
     currentPage: page
   }
 }
-

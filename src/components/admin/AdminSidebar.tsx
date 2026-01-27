@@ -3,13 +3,13 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
-import { 
-  LayoutDashboard, 
-  PlusCircle, 
-  LogOut, 
-  Home, 
-  Layers, 
-  Users, 
+import {
+  LayoutDashboard,
+  PlusCircle,
+  LogOut,
+  Home,
+  Layers,
+  Users,
   Building2,
   Settings,
   Menu,
@@ -39,11 +39,11 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
         <Link href="/admin" className="text-xl font-bold text-slate-900" onClick={() => setIsOpen(false)}>
           AgentFolio <span className="text-slate-400 font-normal">{isSuperAdmin ? 'Super' : 'Agent'}</span>
         </Link>
-        <button onClick={() => setIsOpen(false)} className="md:hidden text-slate-500">
+        <button onClick={() => setIsOpen(false)} className="lg:hidden text-slate-500">
           <X size={24} />
         </button>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto py-4">
         <nav className="space-y-1 px-4">
           <div className="mb-2 px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
@@ -54,15 +54,15 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
             onClick={() => setIsOpen(false)}
             className={cn(
               "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-              isActive('/admin') 
-                ? "bg-slate-100 text-slate-900" 
+              isActive('/admin')
+                ? "bg-slate-100 text-slate-900"
                 : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
             )}
           >
             <LayoutDashboard className="h-5 w-5" />
             Dashboard
           </Link>
-          
+
           <div className="mt-8 mb-2 px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
             Management
           </div>
@@ -76,7 +76,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   isActive('/admin/listings') || isActive('/admin/listings/create')
-                    ? "bg-slate-100 text-slate-900" 
+                    ? "bg-slate-100 text-slate-900"
                     : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                 )}
               >
@@ -89,7 +89,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   isActive('/admin/listings/create')
-                    ? "bg-slate-100 text-slate-900" 
+                    ? "bg-slate-100 text-slate-900"
                     : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                 )}
               >
@@ -108,7 +108,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   isActive('/admin/sections')
-                    ? "bg-slate-100 text-slate-900" 
+                    ? "bg-slate-100 text-slate-900"
                     : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                 )}
               >
@@ -121,7 +121,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   isActive('/admin/users')
-                    ? "bg-slate-100 text-slate-900" 
+                    ? "bg-slate-100 text-slate-900"
                     : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                 )}
               >
@@ -140,7 +140,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
             className={cn(
               "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
               isActive('/admin/settings')
-                ? "bg-slate-100 text-slate-900" 
+                ? "bg-slate-100 text-slate-900"
                 : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
             )}
           >
@@ -183,7 +183,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
   return (
     <>
       {/* Mobile Top Bar */}
-      <div className="fixed top-0 left-0 right-0 z-30 h-16 bg-white border-b border-slate-200 flex items-center px-4 md:hidden">
+      <div className="fixed top-0 left-0 right-0 z-30 h-16 bg-white border-b border-slate-200 flex items-center px-4 lg:hidden">
         <button onClick={() => setIsOpen(true)} className="p-2 text-slate-600">
           <Menu size={24} />
         </button>
@@ -191,21 +191,21 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
       </div>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex fixed left-0 top-0 z-40 h-screen w-64 flex-col">
+      <aside className="hidden lg:flex fixed left-0 top-0 z-40 h-screen w-64 flex-col">
         <SidebarContent />
       </aside>
 
       {/* Mobile Sidebar Overlay */}
       {isOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
 
       {/* Mobile Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transition-transform duration-300 ease-in-out md:hidden",
+        "fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transition-transform duration-300 ease-in-out lg:hidden",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <SidebarContent />

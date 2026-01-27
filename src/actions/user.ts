@@ -1,99 +1,19 @@
-
 'use server'
 
-import sql from '@/lib/db'
-import { verifySession } from '@/lib/auth'
-import { revalidatePath } from 'next/cache'
-import { ListingWithImages } from '@/types'
+// NOTE: This file now only contains server-side utilities.
+// The saved properties feature has been moved to localStorage (client-side).
+// See: src/hooks/useSavedProperties.ts
 
-export async function toggleSavedProperty(listingId: string) {
-  const session = await verifySession()
-  if (!session.isAuth || !session.userId) {
-    throw new Error('Unauthorized')
-  }
-
-  const userId = session.userId
-
-  // Check if exists
-  const existing = await sql`
-    SELECT id FROM saved_properties 
-    WHERE user_id = ${userId} AND listing_id = ${listingId}
-  `
-
-  if (existing.length > 0) {
-    // Delete
-    await sql`
-      DELETE FROM saved_properties 
-      WHERE user_id = ${userId} AND listing_id = ${listingId}
-    `
-    return { saved: false }
-  } else {
-    // Insert
-    await sql`
-      INSERT INTO saved_properties (user_id, listing_id)
-      VALUES (${userId}, ${listingId})
-    `
-    return { saved: true }
-  }
-}
-
-export async function getSavedProperties() {
-  const session = await verifySession()
-  if (!session.isAuth || !session.userId) {
-    return []
-  }
-
-  const listings = await sql`
-    SELECT l.*, 
-      COALESCE(
-        json_agg(
-          json_build_object(
-            'id', li.id,
-            'listing_id', li.listing_id,
-            'url', li.url,
-            'display_order', li.display_order
-          ) ORDER BY li.display_order ASC
-        ) FILTER (WHERE li.id IS NOT NULL),
-        '[]'
-      ) as images
-    FROM listings l
-    JOIN saved_properties sp ON l.id = sp.listing_id
-    LEFT JOIN listing_images li ON l.id = li.listing_id
-    WHERE sp.user_id = ${session.userId}
-    GROUP BY l.id, sp.created_at
-    ORDER BY sp.created_at DESC
-  `
-
-  return listings as unknown as ListingWithImages[]
-}
-
+// getSavedListingIds is now a stub that returns empty since saved properties are localStorage-based
 export async function getSavedListingIds() {
-  const session = await verifySession()
-  if (!session.isAuth || !session.userId) {
-    return []
-  }
-
-  const rows = await sql`
-    SELECT listing_id FROM saved_properties 
-    WHERE user_id = ${session.userId}
-  `
-  return rows.map(r => r.listing_id as string)
+  // Saved properties are now managed client-side via localStorage
+  // This returns an empty array for server-side compatibility
+  return []
 }
 
+// logSearch is now a no-op since search_history table was removed
 export async function logSearch(queryText: string, filters: any) {
-  const session = await verifySession()
-  
-  // We can log for anonymous users too if we track them, but for now only auth
-  if (!session.isAuth || !session.userId) {
-    return
-  }
-
-  // Only log if there's actual search intent
-  const hasFilters = queryText || filters.location || filters.category || filters.type || filters.minPrice || filters.maxPrice
-  if (!hasFilters) return
-
-  await sql`
-    INSERT INTO search_history (user_id, query_text, filters)
-    VALUES (${session.userId}, ${queryText}, ${sql.json(filters)})
-  `
+  // Search history tracking was removed to simplify the app
+  // If needed in future, implement via localStorage or re-add the table
+  console.log('Search logged:', { queryText, filters })
 }

@@ -36,6 +36,7 @@ export default async function RootLayout({
       >
         <NeonAuthProvider>
           {children}
+          <div className="h-15 md:hidden" aria-hidden="true" />
           <BottomNav isAuth={isAuth} />
         </NeonAuthProvider>
       </body>

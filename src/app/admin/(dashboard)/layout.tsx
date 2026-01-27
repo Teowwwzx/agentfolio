@@ -25,7 +25,7 @@ export default async function AdminLayout({
       <AdminSidebar user={user} />
 
       {/* Main Content Area */}
-      <main className="md:pl-64 pt-16 md:pt-0">
+      <main className="lg:pl-64 pt-16 lg:pt-0">
         <div className="container mx-auto max-w-6xl p-4 md:p-8">
           {children}
         </div>
