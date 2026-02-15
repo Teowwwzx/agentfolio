@@ -60,7 +60,9 @@ export function ListingFilters({ categories, types }: ListingFiltersProps) {
     if (debouncedMinPrice) params.set('minPrice', debouncedMinPrice)
     if (debouncedMaxPrice) params.set('maxPrice', debouncedMaxPrice)
 
-    router.push(`/?${params.toString()}`)
+    // FIXED: Preserve current pathname instead of hardcoding '/'
+    const currentPath = window.location.pathname
+    router.push(`${currentPath}?${params.toString()}`)
 
     // Log search history (fire and forget)
     logSearch(debouncedSearch, {

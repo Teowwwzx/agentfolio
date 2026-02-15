@@ -30,6 +30,10 @@ export default async function RootLayout({
   const isAuth = !!session?.user;
   const userRole = session?.user?.role as 'agent' | 'admin' | null || null;
 
+  // Determine which agent's portfolio to link to
+  // For now, default to 'demo'. This will be improved to extract from URL client-side
+  const agentSlug = 'demo';
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -38,7 +42,7 @@ export default async function RootLayout({
         <NeonAuthProvider>
           {children}
           <div className="h-15 md:hidden" aria-hidden="true" />
-          <BottomNav isAuth={isAuth} userRole={userRole} />
+          <BottomNav isAuth={isAuth} userRole={userRole} agentSlug={agentSlug} />
         </NeonAuthProvider>
       </body>
     </html>

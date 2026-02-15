@@ -6,13 +6,21 @@ import { usePathname } from 'next/navigation'
 import { Home, Search, Heart, User, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export function BottomNav({ isAuth, userRole }: { isAuth: boolean; userRole: 'agent' | 'admin' | null }) {
+export function BottomNav({
+  isAuth,
+  userRole,
+  agentSlug
+}: {
+  isAuth: boolean
+  userRole: 'agent' | 'admin' | null
+  agentSlug: string
+}) {
   const pathname = usePathname()
 
-  // Simple: extract agent slug from pathname, or default to 'demo'
+  // Try to get agent slug from current URL first, otherwise use prop
   const agentMatch = pathname.match(/^\/a\/([^\/]+)/)
-  const homeLink = agentMatch ? `/a/${agentMatch[1]}` : '/a/demo'
-
+  const currentSlug = agentMatch ? agentMatch[1] : agentSlug
+  const homeLink = `/a/${currentSlug}`
 
   // Hide on admin pages, login pages, and landing page
   if (pathname.startsWith('/admin') || pathname.startsWith('/agent/login') || pathname === '/admin/auth/login' || pathname === '/') return null
