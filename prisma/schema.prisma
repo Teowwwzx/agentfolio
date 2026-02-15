@@ -98,8 +98,19 @@ model profiles {
   listings      listings[]
   intro_title       String?  @default("Find Your Dream Home")
   intro_description String?  @default("Discover the best properties in the market.")
+  
+  // Social Links (V1)
+  whatsapp_number   String?
+  telegram_handle   String?
+  instagram_handle  String?
+  facebook_url      String?
+  email_contact     String?
+  
+  // Multi-tenant URL (V4)
+  slug              String?  @unique  // Custom URL: /a/{slug}
 
   @@index([role])
+  @@index([slug])
 }
 
 model property_categories {
@@ -136,5 +147,46 @@ model users {
 
   @@index([email])
   @@index([role])
+  @@index([status])
+}
+
+// V3: Team Management
+model teams {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  leader_id   String         @db.Uuid
+  description String?
+  created_at  DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime       @default(now()) @db.Timestamptz(6)
+  members     team_members[]
+
+  @@index([leader_id])
+}
+
+model team_members {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  team_id   String   @db.Uuid
+  user_id   String   @db.Uuid
+  role      String   @default("member") // "leader" | "member"
+  joined_at DateTime @default(now()) @db.Timestamptz(6)
+  team      teams    @relation(fields: [team_id], references: [id], onDelete: Cascade)
+
+  @@unique([team_id, user_id])
+  @@index([team_id])
+  @@index([user_id])
+}
+
+model commissions {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listing_id String   @db.Uuid
+  agent_id   String   @db.Uuid
+  amount     Decimal  @db.Decimal
+  percentage Decimal? @db.Decimal
+  status     String   @default("pending") // "pending" | "paid"
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  paid_at    DateTime? @db.Timestamptz(6)
+
+  @@index([agent_id])
+  @@index([listing_id])
   @@index([status])
 }

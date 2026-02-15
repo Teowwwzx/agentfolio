@@ -1,15 +1,21 @@
 'use client'
 
+
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, Search, Heart, User, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export function BottomNav({ isAuth }: { isAuth: boolean }) {
+export function BottomNav({ isAuth, userRole }: { isAuth: boolean; userRole: 'agent' | 'admin' | null }) {
   const pathname = usePathname()
 
-  // Hide on admin pages and login pages
-  if (pathname.startsWith('/admin') || pathname.startsWith('/agent/login') || pathname === '/admin/auth/login') return null
+  // Simple: extract agent slug from pathname, or default to 'demo'
+  const agentMatch = pathname.match(/^\/a\/([^\/]+)/)
+  const homeLink = agentMatch ? `/a/${agentMatch[1]}` : '/a/demo'
+
+
+  // Hide on admin pages, login pages, and landing page
+  if (pathname.startsWith('/admin') || pathname.startsWith('/agent/login') || pathname === '/admin/auth/login' || pathname === '/') return null
 
   const isActive = (path: string) => pathname === path
 
@@ -17,37 +23,41 @@ export function BottomNav({ isAuth }: { isAuth: boolean }) {
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white pb-safe pt-2 px-6 shadow-[0_-1px_3px_rgba(0,0,0,0.05)] md:hidden">
       <div className="flex items-center justify-around mb-2">
         <Link
-          href="/"
+          href={homeLink}
           className={cn(
             "flex flex-col items-center gap-1 min-w-[64px]",
-            isActive('/') ? "text-blue-600" : "text-slate-500 hover:text-slate-900"
+            isActive(homeLink) ? "text-blue-600" : "text-slate-500 hover:text-slate-900"
           )}
         >
           <Home className="h-6 w-6" />
           <span className="text-[10px] font-medium">Home</span>
         </Link>
 
-        <Link
-          href="/saved"
-          className={cn(
-            "flex flex-col items-center gap-1 min-w-[64px]",
-            isActive('/saved') ? "text-blue-600" : "text-slate-500 hover:text-slate-900"
-          )}
-        >
-          <Heart className="h-6 w-6" />
-          <span className="text-[10px] font-medium">Saved</span>
-        </Link>
-
-        {isAuth && (
+        {/* Show Saved for public users (not agents) */}
+        {userRole !== 'agent' && (
           <Link
-            href="/admin"
+            href="/saved"
             className={cn(
               "flex flex-col items-center gap-1 min-w-[64px]",
-              pathname.startsWith('/admin') ? "text-blue-600" : "text-slate-500 hover:text-slate-900"
+              isActive('/saved') ? "text-blue-600" : "text-slate-500 hover:text-slate-900"
+            )}
+          >
+            <Heart className="h-6 w-6" />
+            <span className="text-[10px] font-medium">Saved</span>
+          </Link>
+        )}
+
+        {/* Show Dashboard for agents */}
+        {userRole === 'agent' && (
+          <Link
+            href="/agent/dashboard"
+            className={cn(
+              "flex flex-col items-center gap-1 min-w-[64px]",
+              pathname.startsWith('/agent') ? "text-blue-600" : "text-slate-500 hover:text-slate-900"
             )}
           >
             <User className="h-6 w-6" />
-            <span className="text-[10px] font-medium">Account</span>
+            <span className="text-[10px] font-medium">Dashboard</span>
           </Link>
         )}
       </div>

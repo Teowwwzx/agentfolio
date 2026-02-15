@@ -15,6 +15,13 @@ interface Profile {
     avatar_url: string | null
     intro_title?: string | null
     intro_description?: string | null
+    slug?: string | null  // Custom URL (V4)
+    // Social Links (V1)
+    whatsapp_number?: string | null
+    telegram_handle?: string | null
+    instagram_handle?: string | null
+    facebook_url?: string | null
+    email_contact?: string | null
 }
 
 export function ProfileForm({ profile }: { profile: Profile }) {
@@ -112,6 +119,37 @@ export function ProfileForm({ profile }: { profile: Profile }) {
                 />
             </div>
 
+            {/* Custom URL Slug */}
+            <div>
+                <label htmlFor="slug" className="block text-sm font-medium mb-2">
+                    Your Portfolio URL
+                </label>
+                <div className="flex items-center">
+                    <span className="px-3 py-2 bg-slate-100 border border-r-0 rounded-l-lg text-slate-500 text-sm">
+                        agentfolio.com/a/
+                    </span>
+                    <input
+                        type="text"
+                        id="slug"
+                        name="slug"
+                        defaultValue={profile.slug || ''}
+                        placeholder="your-name"
+                        pattern="[a-z0-9-]+"
+                        minLength={3}
+                        maxLength={20}
+                        className="flex-1 px-3 py-2 border rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 lowercase"
+                    />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                    3-20 characters. Lowercase letters, numbers, and hyphens only.
+                </p>
+                {profile.slug && (
+                    <p className="text-xs text-blue-600 mt-1">
+                        Your portfolio: <a href={`/a/${profile.slug}`} className="underline" target="_blank">/a/{profile.slug}</a>
+                    </p>
+                )}
+            </div>
+
             {/* Description */}
             <div>
                 <label htmlFor="description" className="block text-sm font-medium mb-2">
@@ -144,6 +182,93 @@ export function ProfileForm({ profile }: { profile: Profile }) {
                 <p className="text-xs text-gray-500 mt-1">
                     Include country code without + (e.g., 60123456789 for Malaysia)
                 </p>
+            </div>
+
+            <hr className="border-gray-200 my-6" />
+
+            {/* Social Links Section */}
+            <div className="bg-green-50 p-4 rounded-lg mb-6">
+                <h3 className="text-lg font-semibold text-green-900 mb-2">Contact Links</h3>
+                <p className="text-sm text-green-700 mb-4">
+                    Add your social media handles so visitors can contact you easily.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* WhatsApp */}
+                    <div>
+                        <label htmlFor="whatsapp_number" className="block text-sm font-medium mb-1">
+                            📱 WhatsApp
+                        </label>
+                        <input
+                            type="tel"
+                            id="whatsapp_number"
+                            name="whatsapp_number"
+                            defaultValue={profile.whatsapp_number || ''}
+                            placeholder="60123456789"
+                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                    </div>
+
+                    {/* Telegram */}
+                    <div>
+                        <label htmlFor="telegram_handle" className="block text-sm font-medium mb-1">
+                            ✈️ Telegram
+                        </label>
+                        <input
+                            type="text"
+                            id="telegram_handle"
+                            name="telegram_handle"
+                            defaultValue={profile.telegram_handle || ''}
+                            placeholder="@username"
+                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        />
+                    </div>
+
+                    {/* Instagram */}
+                    <div>
+                        <label htmlFor="instagram_handle" className="block text-sm font-medium mb-1">
+                            📷 Instagram
+                        </label>
+                        <input
+                            type="text"
+                            id="instagram_handle"
+                            name="instagram_handle"
+                            defaultValue={profile.instagram_handle || ''}
+                            placeholder="@username"
+                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                        />
+                    </div>
+
+                    {/* Facebook */}
+                    <div>
+                        <label htmlFor="facebook_url" className="block text-sm font-medium mb-1">
+                            👤 Facebook
+                        </label>
+                        <input
+                            type="url"
+                            id="facebook_url"
+                            name="facebook_url"
+                            defaultValue={profile.facebook_url || ''}
+                            placeholder="https://facebook.com/yourpage"
+                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        />
+                    </div>
+
+                    {/* Email Contact */}
+                    <div className="md:col-span-2">
+                        <label htmlFor="email_contact" className="block text-sm font-medium mb-1">
+                            ✉️ Contact Email
+                        </label>
+                        <input
+                            type="email"
+                            id="email_contact"
+                            name="email_contact"
+                            defaultValue={profile.email_contact || ''}
+                            placeholder="contact@example.com"
+                            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
+                        />
+                    </div>
+                </div>
             </div>
 
             <hr className="border-gray-200 my-6" />

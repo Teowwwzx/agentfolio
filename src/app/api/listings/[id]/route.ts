@@ -21,7 +21,13 @@ export async function GET(
           select: {
             full_name: true,
             phone_number: true,
-            email: true
+            email: true,
+            // Social links for ContactFAB
+            whatsapp_number: true,
+            telegram_handle: true,
+            instagram_handle: true,
+            facebook_url: true,
+            email_contact: true
           }
         },
         property_categories: {
@@ -46,7 +52,13 @@ export async function GET(
       phone_number: listing.profiles?.phone_number,
       agent_email: listing.profiles?.email,
       category: listing.property_categories?.name,
-      type: listing.property_types?.name
+      type: listing.property_types?.name,
+      // Social links
+      whatsapp: (listing.profiles as any)?.whatsapp_number || listing.profiles?.phone_number,
+      telegram: (listing.profiles as any)?.telegram_handle,
+      instagram: (listing.profiles as any)?.instagram_handle,
+      facebook: (listing.profiles as any)?.facebook_url,
+      email_contact: (listing.profiles as any)?.email_contact
     }
 
     return NextResponse.json(response)

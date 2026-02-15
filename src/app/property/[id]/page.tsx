@@ -8,6 +8,7 @@ import { useSavedProperties } from '@/hooks/useSavedProperties'
 import { ArrowLeft, Heart, MapPin, Bed, Bath, Maximize, Phone, MessageCircle, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { ContactFAB } from '@/components/public/ContactFAB'
 
 
 interface PropertyDetailsPageProps {
@@ -261,6 +262,16 @@ export default function PropertyDetailsPage({ params }: PropertyDetailsPageProps
             </button>
           </div>
         </div>
+
+        {/* Contact FAB */}
+        <ContactFAB
+          whatsapp={(listing as any).whatsapp}
+          telegram={(listing as any).telegram}
+          instagram={(listing as any).instagram}
+          facebook={(listing as any).facebook}
+          email={(listing as any).email_contact}
+          phone={listing.phone_number}
+        />
       </div>
 
       {/* Full Screen Gallery Modal */}

@@ -12,7 +12,9 @@ import {
     LogOut,
     Menu,
     X,
-    Layers
+    Layers,
+    BarChart2,
+    Users2
 } from 'lucide-react'
 import { logoutAction } from '@/actions/auth'
 import { cn } from '@/lib/utils'
@@ -102,6 +104,34 @@ export function AgentSidebar({ user }: AgentSidebarProps) {
                     >
                         <Layers className="h-5 w-5" />
                         Sections
+                    </Link>
+
+                    <Link
+                        href="/agent/analytics"
+                        onClick={() => setIsOpen(false)}
+                        className={cn(
+                            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                            isActive('/agent/analytics')
+                                ? "bg-blue-50 text-blue-600"
+                                : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                        )}
+                    >
+                        <BarChart2 className="h-5 w-5" />
+                        Analytics
+                    </Link>
+
+                    <Link
+                        href="/agent/team"
+                        onClick={() => setIsOpen(false)}
+                        className={cn(
+                            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                            isActive('/agent/team')
+                                ? "bg-blue-50 text-blue-600"
+                                : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                        )}
+                    >
+                        <Users2 className="h-5 w-5" />
+                        Team
                     </Link>
 
                     <Link

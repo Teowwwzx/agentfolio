@@ -28,6 +28,7 @@ export default async function RootLayout({
 }>) {
   const session = await getSession();
   const isAuth = !!session?.user;
+  const userRole = session?.user?.role as 'agent' | 'admin' | null || null;
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -37,7 +38,7 @@ export default async function RootLayout({
         <NeonAuthProvider>
           {children}
           <div className="h-15 md:hidden" aria-hidden="true" />
-          <BottomNav isAuth={isAuth} />
+          <BottomNav isAuth={isAuth} userRole={userRole} />
         </NeonAuthProvider>
       </body>
     </html>

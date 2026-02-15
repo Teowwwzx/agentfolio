@@ -77,15 +77,15 @@ export default function SavedPropertiesPage() {
                     <div>
                         <h2 className="text-3xl font-bold text-slate-900">Saved Properties</h2>
                         <p className="text-slate-600 mt-1">
-                            {savedIds.size === 0
+                            {listings.length === 0
                                 ? 'No saved properties yet'
-                                : `${savedIds.size} ${savedIds.size === 1 ? 'property' : 'properties'} saved`
+                                : `${listings.length} ${listings.length === 1 ? 'property' : 'properties'} saved`
                             }
                         </p>
                     </div>
                 </div>
 
-                {savedIds.size === 0 ? (
+                {listings.length === 0 ? (
                     <div className="flex h-96 flex-col items-center justify-center rounded-3xl bg-white p-8 text-center shadow-card">
                         <div className="rounded-full bg-slate-100 p-4 mb-4">
                             <Heart className="h-12 w-12 text-slate-400" />
